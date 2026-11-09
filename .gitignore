@@ -1,0 +1,25 @@
+# Zig build and output artifacts
+.zig-cache/
+zig-cache/
+zig-out/
+zig-pkg/
+
+# Compiled objects and libraries
+*.o
+*.obj
+*.a
+*.lib
+*.so
+*.dylib
+*.dll
+
+# Native executables
+*.exe
+
+# Crash dumps and core dumps
+core
+core.*
+
+# ZLS and editor caches (optional)
+.zls/
+
