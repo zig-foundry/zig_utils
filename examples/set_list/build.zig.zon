@@ -1,0 +1,13 @@
+.{
+    .name = .set_list,
+    .version = "0.1.0",
+    .fingerprint = 0xd10f1a9195072a06, // generated once by `zig init`
+    .dependencies = .{
+        .zig_utils = .{.path = "../../"},
+    },
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "src",
+    },
+}
