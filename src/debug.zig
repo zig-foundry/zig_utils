@@ -96,7 +96,7 @@ fn readByte(handle: Handle, buf: *[1]u8) !usize {
     if (builtin.os.tag == .windows) {
         var n: std.os.windows.DWORD = 0;
         const ok = windows.ReadFile(handle, buf, 1, &n, null);
-        if (ok == 0) {
+        if (ok == windows.BOOL.FALSE) {
             const err = std.os.windows.GetLastError();
             // ERROR_BROKEN_PIPE (109) means the write end was closed.
             if (err == .BROKEN_PIPE or err == .HANDLE_EOF) return 0;
@@ -149,7 +149,7 @@ fn testPipe() ![2]Handle {
     if (builtin.os.tag == .windows) {
         var read_h: windows.HANDLE = undefined;
         var write_h: windows.HANDLE = undefined;
-        if (windows.CreatePipe(&read_h, &write_h, null, 0) == 0) return error.Unexpected;
+        if (windows.CreatePipe(&read_h, &write_h, null, 0) == windows.BOOL.FALSE) return error.Unexpected;
         return .{ read_h, write_h };
     }
 
@@ -172,7 +172,7 @@ fn testWrite(fd: Handle, data: []const u8) !void {
     if (builtin.os.tag == .windows) {
         var written: windows.DWORD = 0;
         const ok = windows.WriteFile(fd, data.ptr, @intCast(data.len), &written, null);
-        if (ok == 0 or written != data.len) return error.Unexpected;
+        if (ok == windows.BOOL.FALSE or written != data.len) return error.Unexpected;
         return;
     }
     if (builtin.link_libc) {
