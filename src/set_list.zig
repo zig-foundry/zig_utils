@@ -1,5 +1,6 @@
 //! A contiguous, growable mathematical set backed by an array slice.
 //! Preserves insertion order and guarantees that every element is unique.
+//! Reference: std.ArrayList(T)
 
 const std = @import("std");
 const debug = std.debug;
