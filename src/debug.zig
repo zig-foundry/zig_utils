@@ -4,6 +4,10 @@ const std = @import("std");
 const builtin = @import("builtin");
 pub const term = @import("debug/term.zig");
 
+/// Cross-platform file handle. On Windows this is a HANDLE, elsewhere a POSIX fd.
+/// Zig 0.18 removed POSIX support on Windows, so we cannot use std.posix.fd_t.
+const Handle = std.Io.File.Handle;
+
 pub const ReadError = error{
     EndOfStream,
     StreamTooLong,
@@ -27,7 +31,7 @@ pub fn read(comptime T: type) ReadError!T {
 
 /// Reads one line from any OS file handle.
 /// This is useful when you want to test with pipes.
-pub fn readLineFrom(handle: std.posix.fd_t, buf: []u8) ReadError![]const u8 {
+pub fn readLineFrom(handle: Handle, buf: []u8) ReadError![]const u8 {
     var index: usize = 0;
 
     while (true) {
@@ -63,7 +67,7 @@ pub fn readLineFrom(handle: std.posix.fd_t, buf: []u8) ReadError![]const u8 {
 }
 
 /// Reads one line from an OS file handle and parses it into type `T`.
-pub fn readFrom(handle: std.posix.fd_t, comptime T: type) ReadError!T {
+pub fn readFrom(handle: Handle, comptime T: type) ReadError!T {
     var stack_buf: [128]u8 = undefined;
     const raw = try readLineFrom(handle, &stack_buf);
     const trimmed = std.mem.trim(u8, raw, " \t\r");
@@ -84,17 +88,71 @@ pub fn readFrom(handle: std.posix.fd_t, comptime T: type) ReadError!T {
     };
 }
 
-fn stdinHandle() std.posix.fd_t {
+fn stdinHandle() Handle {
     return std.Io.File.stdin().handle;
 }
 
-fn readByte(handle: std.posix.fd_t, buf: *[1]u8) !usize {
+fn readByte(handle: Handle, buf: *[1]u8) !usize {
+    if (builtin.os.tag == .windows) {
+        var n: std.os.windows.DWORD = 0;
+        const ok = windows.ReadFile(handle, buf, 1, &n, null);
+        if (ok == 0) {
+            const err = std.os.windows.GetLastError();
+            // ERROR_BROKEN_PIPE (109) means the write end was closed.
+            if (err == .BROKEN_PIPE or err == .HANDLE_EOF) return 0;
+            return error.EndOfStream;
+        }
+        return n;
+    }
     return std.posix.read(handle, buf);
 }
 
-// Test helpers for Zig 0.18.0-dev because std.posix removed pipe, write, and close.
+// Windows kernel32 declarations. Zig 0.18 does not expose CreatePipe/ReadFile/WriteFile
+// as high-level wrappers the way older versions did.
+const windows = struct {
+    const w = std.os.windows;
+    const HANDLE = w.HANDLE;
+    const DWORD = w.DWORD;
+    const BOOL = w.BOOL;
+    const SECURITY_ATTRIBUTES = w.SECURITY_ATTRIBUTES;
 
-fn testPipe() ![2]std.posix.fd_t {
+    pub extern "kernel32" fn CreatePipe(
+        hReadPipe: *HANDLE,
+        hWritePipe: *HANDLE,
+        lpPipeAttributes: ?*const SECURITY_ATTRIBUTES,
+        nSize: DWORD,
+    ) callconv(.winapi) BOOL;
+
+    pub extern "kernel32" fn ReadFile(
+        hFile: HANDLE,
+        lpBuffer: [*]u8,
+        nNumberOfBytesToRead: DWORD,
+        lpNumberOfBytesRead: ?*DWORD,
+        lpOverlapped: ?*anyopaque,
+    ) callconv(.winapi) BOOL;
+
+    pub extern "kernel32" fn WriteFile(
+        hFile: HANDLE,
+        lpBuffer: [*]const u8,
+        nNumberOfBytesToWrite: DWORD,
+        lpNumberOfBytesWritten: ?*DWORD,
+        lpOverlapped: ?*anyopaque,
+    ) callconv(.winapi) BOOL;
+
+    pub extern "kernel32" fn CloseHandle(hObject: HANDLE) callconv(.winapi) BOOL;
+};
+
+// Test helpers. POSIX pipe/write/close were removed from std.posix in 0.18,
+// and Windows has no POSIX at all.
+
+fn testPipe() ![2]Handle {
+    if (builtin.os.tag == .windows) {
+        var read_h: windows.HANDLE = undefined;
+        var write_h: windows.HANDLE = undefined;
+        if (windows.CreatePipe(&read_h, &write_h, null, 0) == 0) return error.Unexpected;
+        return .{ read_h, write_h };
+    }
+
     var fds: [2]std.posix.fd_t = undefined;
     if (builtin.link_libc) {
         if (std.c.pipe(&fds) != 0) return error.Unexpected;
@@ -110,7 +168,13 @@ fn testPipe() ![2]std.posix.fd_t {
     }
 }
 
-fn testWrite(fd: std.posix.fd_t, data: []const u8) !void {
+fn testWrite(fd: Handle, data: []const u8) !void {
+    if (builtin.os.tag == .windows) {
+        var written: windows.DWORD = 0;
+        const ok = windows.WriteFile(fd, data.ptr, @intCast(data.len), &written, null);
+        if (ok == 0 or written != data.len) return error.Unexpected;
+        return;
+    }
     if (builtin.link_libc) {
         const rc = std.c.write(fd, data.ptr, data.len);
         if (rc < 0) return error.Unexpected;
@@ -125,14 +189,18 @@ fn testWrite(fd: std.posix.fd_t, data: []const u8) !void {
     }
 }
 
-fn testClose(fd: std.posix.fd_t) void {
+fn testClose(fd: Handle) void {
+    if (builtin.os.tag == .windows) {
+        _ = windows.CloseHandle(fd);
+        return;
+    }
     if (builtin.link_libc) {
         _ = std.c.close(fd);
         return;
     }
     switch (builtin.os.tag) {
         .linux => _ = std.os.linux.close(fd),
-        else => @compileError("Add -lc to run pipe tests on non-Linux targets."),
+        else => {},
     }
 }
 

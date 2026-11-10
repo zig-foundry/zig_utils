@@ -6,6 +6,54 @@ Extra helper functions for Zig that extend the standard library.
 
 Zig v`0.18.0-dev`.
 
+## Install
+
+For stable (v0.0.1):
+
+```bash
+zig fetch --save https://github.com/zig-foundry/zig_utils/archive/refs/tags/v0.0.1.tar.gz
+```
+
+For latest (dev / main):
+
+```bash
+zig fetch --save https://github.com/zig-foundry/zig_utils/archive/refs/heads/main.tar.gz
+```
+
+Or with git ref:
+
+```bash
+zig fetch --save git+https://github.com/zig-foundry/zig_utils#v0.0.1
+zig fetch --save git+https://github.com/zig-foundry/zig_utils#main
+```
+
+This adds the dependency to your `build.zig.zon`.
+
+## Usage
+
+In your `build.zig`:
+
+```zig
+const zig_utils = b.dependency("zig_utils", .{
+    .target = target,
+    .optimize = optimize,
+});
+
+exe.root_module.addImport("zig_utils", zig_utils.module("zig_utils"));
+```
+
+Then in your code:
+
+```zig
+const zig_utils = @import("zig_utils");
+
+// example
+var set = try zig_utils.SetList(i32).init(gpa);
+defer set.deinit();
+```
+
+Check the `examples/` directory for more.
+
 ## Modules
 
 Currently `zig_utils` has these modules:
@@ -26,10 +74,6 @@ Currently `zig_utils` has these modules:
 14. `zig_utils.Lazy` (**Working on it**)
 15. `zig_utils.Once` (**Working on it**)
 16. `zig_utils.BitFlags` (**Working on it**)
-
-## Examples
-
-Check the `examples/` directory to see how to use `zig_utils` in your project.
 
 ## Commands
 
@@ -54,4 +98,3 @@ zig build docs
 ## License
 
 This project uses the [MIT License](LICENSE).
-
