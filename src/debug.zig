@@ -2,6 +2,7 @@
 
 const std = @import("std");
 const builtin = @import("builtin");
+pub const term = @import("debug/term.zig");
 
 pub const ReadError = error{
     EndOfStream,

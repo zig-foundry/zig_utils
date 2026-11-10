@@ -9,4 +9,5 @@ pub const Set = set_list.SetList;
 test {
     _ = debug;
     _ = set_list;
+    _ = debug.term;
 }
