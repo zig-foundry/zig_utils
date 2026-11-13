@@ -1,0 +1,14 @@
+.{
+    .name = .slices,
+    .version = "0.1.0",
+    .fingerprint = 0xbd8f361439b2005b,
+    .dependencies = .{
+        .zig_utils = .{.path = "../../"},
+    },
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "src",
+    },
+}
+

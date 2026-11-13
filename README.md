@@ -60,7 +60,7 @@ Currently `zig_utils` has these modules:
 
 1. `zig_utils.debug`
 2. `zig_utils.SetList` or `zig_utils.Set` (both *Set* and *SetList* are same just name alias.)
-3. `zig_utils.slices` (**Working on it**)
+3. `zig_utils.slices` 
 4. `zig_utils.Deque` (**Working on it**)
 5. `zig_utils.StaticList` (**Wroking on it**)
 6. `zig_utils.SmallList` (**Working on it**)
