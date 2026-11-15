@@ -3,6 +3,7 @@
 pub const debug = @import("debug.zig");
 pub const set_list = @import("set_list.zig");
 pub const slices = @import("slices.zig");
+pub const tui = @import("tui/root.zig");
 
 pub const SetList = set_list.SetList;
 pub const Set = set_list.SetList;
@@ -12,4 +13,5 @@ test {
     _ = set_list;
     _ = debug.term;
     _ = slices;
+    _ = tui;
 }

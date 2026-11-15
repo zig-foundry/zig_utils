@@ -8,22 +8,17 @@ Zig v`0.18.0-dev`.
 
 ## Install
 
-For stable (v0.0.1):
+For stable (`v0.0.1`):
 
 ```bash
 zig fetch --save https://github.com/zig-foundry/zig_utils/archive/refs/tags/v0.0.1.tar.gz
 ```
 
-For latest (dev / main):
+For latest (`dev` / `main` — pins the current commit hash so future pushes won't break builds):
 
 ```bash
-zig fetch --save https://github.com/zig-foundry/zig_utils/archive/refs/heads/main.tar.gz
-```
-
-Or with git ref:
-
-```bash
-zig fetch --save git+https://github.com/zig-foundry/zig_utils#v0.0.1
+zig fetch --save git+https://github.com/zig-foundry/zig_utils#dev
+# or track the main branch directly:
 zig fetch --save git+https://github.com/zig-foundry/zig_utils#main
 ```
 
@@ -62,13 +57,13 @@ Currently `zig_utils` has these modules:
 2. `zig_utils.SetList` or `zig_utils.Set` (both *Set* and *SetList* are same just name alias.)
 3. `zig_utils.slices` 
 4. `zig_utils.Deque` (**Working on it**)
-5. `zig_utils.StaticList` (**Wroking on it**)
+5. `zig_utils.StaticList` (**Working on it**)
 6. `zig_utils.SmallList` (**Working on it**)
 7. `zig_utils.MapList` (**Working on it**)
 8. `zig_utils.SlotMap` (**Working on it**)
 9. `zig_utils.BTreeSet` (**Working on it**)
 10. `zig_utils.BiMap` (**Working on it**)
-11. `zig_utils.​OrderedMap` (**Wroking on it**)
+11. `zig_utils.OrderedMap` (**Working on it**)
 12. `zig_utils.strings` (**Working on it**)
 13. `zig_utils.fmt_exe` (**Working on it**)
 14. `zig_utils.Lazy` (**Working on it**)
