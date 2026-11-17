@@ -33,19 +33,25 @@ pub fn readKey(fd: posix.fd_t, timeout_ms: i32) !Key {
         .{ .fd = fd, .events = posix.POLL.IN, .revents = 0 },
     };
 
-    const ready = posix.poll(&fds, timeout_ms) catch |err| switch (err) {
-        error.Interrupted => return if (terminal.consumeResize()) .resize else .none,
-        else => return err,
-    };
-
-    if (ready == 0) {
-        return if (terminal.consumeResize()) .resize else .none;
+    const poll_rc = posix.system.poll(&fds, fds.len, timeout_ms);
+    switch (posix.errno(poll_rc)) {
+        .SUCCESS => {
+            if (poll_rc == 0) {
+                return if (terminal.consumeResize()) .resize else .none;
+            }
+        },
+        .INTR => return if (terminal.consumeResize()) .resize else .none,
+        .AGAIN => return .none,
+        .NOMEM => return error.SystemResources,
+        else => |err| return posix.unexpectedErrno(err),
     }
 
     var buf: [32]u8 = undefined;
-    const n = posix.read(fd, &buf) catch |err| switch (err) {
-        error.WouldBlock, error.Interrupted => return if (terminal.consumeResize()) .resize else .none,
-        else => return err,
+    const read_rc = posix.system.read(fd, &buf, buf.len);
+    const n: usize = switch (posix.errno(read_rc)) {
+        .SUCCESS => @intCast(read_rc),
+        .INTR, .AGAIN => return if (terminal.consumeResize()) .resize else .none,
+        else => |err| return posix.unexpectedErrno(err),
     };
     if (n == 0) return .none;
 
@@ -53,10 +59,12 @@ pub fn readKey(fd: posix.fd_t, timeout_ms: i32) !Key {
     if (buf[0] == 0x1B) {
         if (n == 1) {
             // Short follow-up poll to distinguish standalone Esc from multi-byte sequence
-            const esc_ready = posix.poll(&fds, 15) catch 0;
-            if (esc_ready == 0) return .esc;
-            const extra = posix.read(fd, buf[1..]) catch 0;
-            if (extra == 0) return .esc;
+            const esc_poll = posix.system.poll(&fds, fds.len, 15);
+            if (posix.errno(esc_poll) != .SUCCESS or esc_poll == 0) return .esc;
+
+            const extra_rc = posix.system.read(fd, buf[1..].ptr, buf.len - 1);
+            if (posix.errno(extra_rc) != .SUCCESS or extra_rc == 0) return .esc;
+            const extra: usize = @intCast(extra_rc);
             return parseEscape(buf[0 .. 1 + extra]);
         }
         return parseEscape(buf[0..n]);
@@ -66,7 +74,7 @@ pub fn readKey(fd: posix.fd_t, timeout_ms: i32) !Key {
         0x0D, 0x0A => .enter,
         0x09 => .tab,
         0x7F, 0x08 => .backspace,
-        0x01...0x1A => .{ .ctrl = 'a' + (buf[0] - 1) },
+        0x01...0x07, 0x0B...0x0C, 0x0E...0x1A => .{ .ctrl = 'a' + (buf[0] - 1) },
         else => decodeUtf8(buf[0..n]),
     };
 }

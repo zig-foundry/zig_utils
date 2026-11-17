@@ -14,7 +14,7 @@ var saved_fd: posix.fd_t = 0;
 var saved_termios: posix.termios = undefined;
 var sigwinch_flag = std.atomic.Value(bool).init(false);
 
-fn handleSigwinch(_: c_int) callconv(.c) void {
+fn handleSigwinch(_: posix.SIG) callconv(.c) void {
     sigwinch_flag.store(true, .release);
 }
 
@@ -62,7 +62,8 @@ pub fn leaveRawMode() void {
     if (!saved_active.swap(false, .acq_rel)) return;
 
     const stdout_fd = std.Io.File.stdout().handle;
-    _ = posix.write(stdout_fd, "\x1b[0m\x1b[?25h\x1b[?1049l") catch {};
+    const reset_seq = "\x1b[0m\x1b[?25h\x1b[?1049l";
+    _ = posix.system.write(stdout_fd, reset_seq.ptr, reset_seq.len);
     posix.tcsetattr(saved_fd, .FLUSH, saved_termios) catch {};
 }
 
