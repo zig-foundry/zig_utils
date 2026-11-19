@@ -16,6 +16,9 @@ pub const Window = struct {
     cur_y: u16 = 0,
     attr: cell_mod.Attr = .{},
     pair_id: u8 = 0,
+    bkgd_char: u21 = ' ',
+    bkgd_attr: cell_mod.Attr = .{},
+    bkgd_pair: u8 = 0,
     timeout_ms: i32 = -1, // -1 = blocking (default ncurses), 0 = nodelay
     cells: []cell_mod.Cell,
     renderer: *renderer_mod.Renderer,
@@ -83,6 +86,20 @@ pub const Window = struct {
         self.pair_id = pair_id;
     }
 
+    /// Sets the background character, attributes, and color pair used by erase/clear.
+    /// Does not modify existing cells. Equivalent to ncurses bkgdset().
+    pub fn bkgdset(self: *Window, ch: u21, attr: cell_mod.Attr, pair_id: u8) void {
+        self.bkgd_char = ch;
+        self.bkgd_attr = attr;
+        self.bkgd_pair = pair_id;
+    }
+
+    /// Sets the background and applies it to the whole window (like ncurses bkgd).
+    pub fn bkgd(self: *Window, ch: u21, attr: cell_mod.Attr, pair_id: u8) void {
+        self.bkgdset(ch, attr, pair_id);
+        self.erase();
+    }
+
     pub fn nodelay(self: *Window, enabled: bool) void {
         self.timeout_ms = if (enabled) 0 else -1;
     }
@@ -95,14 +112,14 @@ pub const Window = struct {
         return input_mod.readKey(self.tty_fd, self.timeout_ms);
     }
 
-    /// Fills window with blanks using current color pair (no forced full-screen repaint).
+    /// Fills window with the current background character/attribute/pair.
     pub fn erase(self: *Window) void {
-        const cp = self.pairs.get(self.pair_id);
+        const cp = self.pairs.get(self.bkgd_pair);
         @memset(self.cells, cell_mod.Cell{
-            .char = ' ',
+            .char = self.bkgd_char,
             .fg = cp.fg,
             .bg = cp.bg,
-            .attr = self.attr,
+            .attr = self.bkgd_attr,
         });
         self.cur_x = 0;
         self.cur_y = 0;
@@ -165,21 +182,23 @@ pub const Window = struct {
     pub fn box(self: *Window) void {
         if (self.width < 2 or self.height < 2) return;
 
-        self.mvAddChar(0, 0, '┌');
-        self.mvAddChar(self.width - 1, 0, '┐');
-        self.mvAddChar(0, self.height - 1, '└');
-        self.mvAddChar(self.width - 1, self.height - 1, '┘');
+        const ACS = cell_mod.ACS;
+
+        self.mvAddChar(0, 0, ACS.ulcorner);
+        self.mvAddChar(self.width - 1, 0, ACS.urcorner);
+        self.mvAddChar(0, self.height - 1, ACS.llcorner);
+        self.mvAddChar(self.width - 1, self.height - 1, ACS.lrcorner);
 
         var x: u16 = 1;
         while (x < self.width - 1) : (x += 1) {
-            self.mvAddChar(x, 0, '─');
-            self.mvAddChar(x, self.height - 1, '─');
+            self.mvAddChar(x, 0, ACS.hline);
+            self.mvAddChar(x, self.height - 1, ACS.hline);
         }
 
         var y: u16 = 1;
         while (y < self.height - 1) : (y += 1) {
-            self.mvAddChar(0, y, '│');
-            self.mvAddChar(self.width - 1, y, '│');
+            self.mvAddChar(0, y, ACS.vline);
+            self.mvAddChar(self.width - 1, y, ACS.vline);
         }
     }
 

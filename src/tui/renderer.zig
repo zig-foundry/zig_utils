@@ -129,7 +129,10 @@ fn writeAttr(out: *std.Io.Writer, attr: Attr) !void {
     if (attr.dim) try out.writeAll(";2");
     if (attr.italic) try out.writeAll(";3");
     if (attr.underline) try out.writeAll(";4");
-    if (attr.reverse) try out.writeAll(";7");
+    if (attr.blink) try out.writeAll(";5");
+    if (attr.reverse or attr.standout) try out.writeAll(";7");
+    if (attr.invisible) try out.writeAll(";8");
+    // altcharset and protect have no portable SGR; handled by character choice / ignored
     try out.writeAll("m");
 }
 

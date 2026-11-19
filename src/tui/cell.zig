@@ -22,24 +22,29 @@ pub const Color = union(enum) {
     pub const white: Color = .{ .ansi = 7 };
 };
 
-pub const Attr = packed struct(u8) {
+pub const Attr = packed struct(u16) {
     bold: bool = false,
     dim: bool = false,
     italic: bool = false,
     underline: bool = false,
     reverse: bool = false,
-    _pad: u3 = 0,
+    blink: bool = false,
+    standout: bool = false,
+    invisible: bool = false,
+    protect: bool = false,
+    altcharset: bool = false,
+    _pad: u6 = 0,
 
     const Self = @This();
 
     pub const normal: Self = .{};
 
     pub fn merge(self: Self, other: Self) Self {
-        return @bitCast(@as(u8, @bitCast(self)) | @as(u8, @bitCast(other)));
+        return @bitCast(@as(u16, @bitCast(self)) | @as(u16, @bitCast(other)));
     }
 
     pub fn remove(self: Self, other: Self) Self {
-        return @bitCast(@as(u8, @bitCast(self)) & ~@as(u8, @bitCast(other)));
+        return @bitCast(@as(u16, @bitCast(self)) & ~@as(u16, @bitCast(other)));
     }
 };
 
@@ -74,4 +79,28 @@ pub const Cell = struct {
             std.meta.eql(a.fg, b.fg) and
             std.meta.eql(a.bg, b.bg);
     }
+};
+
+/// Unicode box-drawing characters (preferred over classic ACS on modern terminals).
+/// Names follow the common ACS / ncurses naming where practical.
+pub const ACS = struct {
+    pub const ulcorner: u21 = '┌';
+    pub const urcorner: u21 = '┐';
+    pub const llcorner: u21 = '└';
+    pub const lrcorner: u21 = '┘';
+    pub const hline: u21 = '─';
+    pub const vline: u21 = '│';
+    pub const ltee: u21 = '├';
+    pub const rtee: u21 = '┤';
+    pub const ttee: u21 = '┬';
+    pub const btee: u21 = '┴';
+    pub const plus: u21 = '┼';
+    pub const diamond: u21 = '◆';
+    pub const ckboard: u21 = '░';
+    pub const degree: u21 = '°';
+    pub const bullet: u21 = '•';
+    pub const arrow_right: u21 = '→';
+    pub const arrow_left: u21 = '←';
+    pub const arrow_up: u21 = '↑';
+    pub const arrow_down: u21 = '↓';
 };

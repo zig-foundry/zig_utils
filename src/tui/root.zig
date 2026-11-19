@@ -14,6 +14,7 @@ pub const Color = cell.Color;
 pub const Attr = cell.Attr;
 pub const Window = window.Window;
 pub const Key = input.Key;
+pub const ACS = cell.ACS;
 
 pub const Screen = struct {
     gpa: std.mem.Allocator,
