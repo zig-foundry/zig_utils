@@ -72,9 +72,9 @@ Reference: ncurses (X/Open Curses + extensions), with modern terminal protocols 
 
 **Goal**: Make the existing foundation complete and robust.
 
-- [ ] Full attribute set (`blink`, `standout`, `invisible`, `protect`, `altcharset`)
-- [ ] Background character + attribute (`bkgdset` / `bkgd` equivalent)
-- [ ] Proper ACS / line-drawing constants (or Unicode box drawing as primary)
+- [X] Full attribute set (`blink`, `standout`, `invisible`, `protect`, `altcharset`)
+- [X] Background character + attribute (`bkgdset` / `bkgd` equivalent)
+- [X] Proper ACS / line-drawing constants (or Unicode box drawing as primary)
 - [ ] Better border API (`border` with custom corners/sides)
 - [ ] Window methods: `getyx`, `getbegyx`, `getmaxyx`, `inch` / `mvinch`
 - [ ] `wtouch` / change tracking improvements
