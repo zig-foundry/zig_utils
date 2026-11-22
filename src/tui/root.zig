@@ -104,3 +104,7 @@ pub fn initscr(gpa: std.mem.Allocator, io: std.Io) !*Screen {
 pub fn endwin() void {
     terminal.leaveRawMode();
 }
+
+test {
+    _ = @import("tests.zig");
+}

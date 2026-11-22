@@ -22,7 +22,7 @@ pub const Color = union(enum) {
     pub const white: Color = .{ .ansi = 7 };
 };
 
-pub const Attr = packed struct(u16) {
+pub const Attr = bitpack struct(u16) {
     bold: bool = false,
     dim: bool = false,
     italic: bool = false,

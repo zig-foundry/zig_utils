@@ -20,6 +20,7 @@ pub const Window = struct {
     bkgd_attr: cell_mod.Attr = .{},
     bkgd_pair: u8 = 0,
     timeout_ms: i32 = -1, // -1 = blocking (default ncurses), 0 = nodelay
+    touched: bool = true,
     cells: []cell_mod.Cell,
     renderer: *renderer_mod.Renderer,
     pairs: *const cell_mod.PairTable,
@@ -64,9 +65,47 @@ pub const Window = struct {
         self.cur_y = 0;
     }
 
+    /// Marks the whole window as needing a refresh (like touchwin / wtouchln full).
+    pub fn touch(self: *Window) void {
+        self.touched = true;
+    }
+
+    /// Clears the dirty flag.
+    pub fn untouch(self: *Window) void {
+        self.touched = false;
+    }
+
     pub fn move(self: *Window, x: u16, y: u16) void {
         self.cur_x = x;
         self.cur_y = y;
+    }
+
+    /// Returns the current cursor position inside the window (like getyx).
+    pub fn getyx(self: *const Window) struct { y: u16, x: u16 } {
+        return .{ .y = self.cur_y, .x = self.cur_x };
+    }
+
+    /// Returns the window's origin on the screen (like getbegyx).
+    pub fn getbegyx(self: *const Window) struct { y: u16, x: u16 } {
+        return .{ .y = self.y, .x = self.x };
+    }
+
+    /// Returns the window's size (like getmaxyx).
+    pub fn getmaxyx(self: *const Window) struct { y: u16, x: u16 } {
+        return .{ .y = self.height, .x = self.width };
+    }
+
+    /// Returns the cell at the current cursor (like inch). Returns null if out of bounds.
+    pub fn inch(self: *const Window) ?cell_mod.Cell {
+        if (self.cur_x >= self.width or self.cur_y >= self.height) return null;
+        const idx = @as(usize, self.cur_y) * @as(usize, self.width) + @as(usize, self.cur_x);
+        return self.cells[idx];
+    }
+
+    /// Moves then returns the cell (like mvinch).
+    pub fn mvinch(self: *Window, x: u16, y: u16) ?cell_mod.Cell {
+        self.move(x, y);
+        return self.inch();
     }
 
     pub fn attrOn(self: *Window, a: cell_mod.Attr) void {
@@ -98,6 +137,7 @@ pub const Window = struct {
     pub fn bkgd(self: *Window, ch: u21, attr: cell_mod.Attr, pair_id: u8) void {
         self.bkgdset(ch, attr, pair_id);
         self.erase();
+        self.touched = true;
     }
 
     pub fn nodelay(self: *Window, enabled: bool) void {
@@ -123,12 +163,14 @@ pub const Window = struct {
         });
         self.cur_x = 0;
         self.cur_y = 0;
+        self.touched = true;
     }
 
     /// Same as erase(), plus forces a full terminal repaint on next doupdate().
     pub fn clear(self: *Window) void {
         self.erase();
         self.renderer.force_redraw = true;
+        self.touched = true;
     }
 
     pub fn addChar(self: *Window, ch: u21) void {
@@ -148,6 +190,7 @@ pub const Window = struct {
             .attr = self.attr,
         };
         self.cur_x += 1;
+        self.touched = true;
     }
 
     pub fn mvAddChar(self: *Window, x: u16, y: u16, ch: u21) void {
@@ -200,10 +243,59 @@ pub const Window = struct {
             self.mvAddChar(0, y, ACS.vline);
             self.mvAddChar(self.width - 1, y, ACS.vline);
         }
+        self.touched = true;
+    }
+
+    /// Draws a border with custom characters.
+    /// Pass 0 for any side/corner to use the default ACS character.
+    /// Equivalent to ncurses border().
+    pub fn border(
+        self: *Window,
+        ls: u21,
+        rs: u21,
+        ts: u21,
+        bs: u21,
+        tl: u21,
+        tr: u21,
+        bl: u21,
+        br: u21,
+    ) void {
+        if (self.width < 2 or self.height < 2) return;
+
+        const ACS = cell_mod.ACS;
+        const left = if (ls == 0) ACS.vline else ls;
+        const right = if (rs == 0) ACS.vline else rs;
+        const top = if (ts == 0) ACS.hline else ts;
+        const bottom = if (bs == 0) ACS.hline else bs;
+        const top_left = if (tl == 0) ACS.ulcorner else tl;
+        const top_right = if (tr == 0) ACS.urcorner else tr;
+        const bot_left = if (bl == 0) ACS.llcorner else bl;
+        const bot_right = if (br == 0) ACS.lrcorner else br;
+
+        self.mvAddChar(0, 0, top_left);
+        self.mvAddChar(self.width - 1, 0, top_right);
+        self.mvAddChar(0, self.height - 1, bot_left);
+        self.mvAddChar(self.width - 1, self.height - 1, bot_right);
+
+        var x: u16 = 1;
+        while (x < self.width - 1) : (x += 1) {
+            self.mvAddChar(x, 0, top);
+            self.mvAddChar(x, self.height - 1, bottom);
+        }
+
+        var y: u16 = 1;
+        while (y < self.height - 1) : (y += 1) {
+            self.mvAddChar(0, y, left);
+            self.mvAddChar(self.width - 1, y, right);
+        }
+        self.touched = true;
     }
 
     /// Stage this window into the virtual screen without flushing to stdout yet.
-    pub fn noutrefresh(self: *const Window) void {
+    /// Skips work if the window has not been touched since the last refresh.
+    pub fn noutrefresh(self: *Window) void {
+        if (!self.touched) return;
+
         var wy: u16 = 0;
         while (wy < self.height) : (wy += 1) {
             const sy = self.y + wy;
@@ -219,6 +311,21 @@ pub const Window = struct {
                 self.renderer.virtual[s_idx] = self.cells[w_idx];
             }
         }
+
+        self.touched = false;
+    }
+
+    /// Moves the physical terminal cursor to this window’s current logical cursor.
+    /// Call after refresh if you want the visible cursor at the right place.
+    pub fn syncCursor(self: *const Window, io: std.Io) !void {
+        const screen_x = self.x + self.cur_x + 1;
+        const screen_y = self.y + self.cur_y + 1;
+
+        var buf: [64]u8 = undefined;
+        var writer = std.Io.File.stdout().writerStreaming(io, &buf);
+        const out = &writer.interface;
+        try out.print("\x1b[{d};{d}H", .{ screen_y, screen_x });
+        try out.flush();
     }
 
     /// Stage and immediately flush to the terminal (equivalent to wrefresh).
